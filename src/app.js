@@ -1,0 +1,84 @@
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const { apiLimiter } = require('./middleware/rateLimiter');
+
+// Route imports
+const authRoutes = require('./routes/auth');
+const profileRoutes = require('./routes/profile');
+const roomRoutes = require('./routes/rooms');
+const matchRoutes = require('./routes/matches');
+const ventRoutes = require('./routes/vents');
+const reportRoutes = require('./routes/reports');
+const subscriptionRoutes = require('./routes/subscriptions');
+
+// Admin route imports
+const adminAuthRoutes = require('./routes/admin/auth');
+const adminReportRoutes = require('./routes/admin/reports');
+const adminUserRoutes = require('./routes/admin/users');
+const adminRoomRoutes = require('./routes/admin/rooms');
+const adminPromptRoutes = require('./routes/admin/prompts');
+const adminIntentRoutes = require('./routes/admin/intents');
+const adminAnalyticsRoutes = require('./routes/admin/analytics');
+
+const app = express();
+
+// Security middleware
+app.use(helmet());
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true,
+}));
+
+// Body parsing
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Logging
+if (process.env.NODE_ENV !== 'test') {
+    app.use(morgan('combined'));
+}
+
+// Rate limiting
+app.use('/api/', apiLimiter);
+
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ─── API Routes ──────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/matches', matchRoutes);
+app.use('/api/vents', ventRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
+
+// ─── Admin Routes ────────────────────────────
+app.use('/api/admin/auth', adminAuthRoutes);
+app.use('/api/admin/reports', adminReportRoutes);
+app.use('/api/admin/users', adminUserRoutes);
+app.use('/api/admin/rooms', adminRoomRoutes);
+app.use('/api/admin/prompts', adminPromptRoutes);
+app.use('/api/admin/intents', adminIntentRoutes);
+app.use('/api/admin/analytics', adminAnalyticsRoutes);
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found' });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error('Unhandled error:', err);
+    res.status(500).json({
+        error: process.env.NODE_ENV === 'production'
+            ? 'Internal server error'
+            : err.message,
+    });
+});
+
+module.exports = app;

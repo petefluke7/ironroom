@@ -1,0 +1,359 @@
+// IronRoom Database Schema
+// PostgreSQL via Railway
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────
+// USERS & IDENTITY
+// ─────────────────────────────────────
+
+enum IdentityMode {
+  real_name
+  first_name
+  nickname
+}
+
+model User {
+  id                      String        @id @default(uuid()) @db.Uuid
+  email                   String?       @unique
+  phoneNumber             String?       @unique @map("phone_number")
+  passwordHash            String        @map("password_hash")
+  firebaseUid             String?       @unique @map("firebase_uid")
+  displayName             String        @map("display_name")
+  identityMode            IdentityMode  @map("identity_mode")
+  isActive                Boolean       @default(false) @map("is_active")
+  isSuspended             Boolean       @default(false) @map("is_suspended")
+  suspendedUntil          DateTime?     @map("suspended_until")
+  isVerified              Boolean       @default(false) @map("is_verified")
+  agreedToValues          Boolean       @default(false) @map("agreed_to_values")
+  agreedToValuesAt        DateTime?     @map("agreed_to_values_at")
+  deviceId                String?       @map("device_id")
+  fcmToken                String?       @map("fcm_token")
+  riskScore               Int           @default(0) @map("risk_score")
+  supportSessionsCount    Int           @default(0) @map("support_sessions_count")
+  lastSupportSessionAt    DateTime?     @map("last_support_session_at")
+  lastLoginAt             DateTime?     @map("last_login_at")
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  intents                 UserIntent[]
+  subscriptions           Subscription[]
+  roomMemberships         RoomMember[]
+  roomMessages            RoomMessage[]
+  privateMatchesAsOne     PrivateMatch[]   @relation("MatchUserOne")
+  privateMatchesAsTwo     PrivateMatch[]   @relation("MatchUserTwo")
+  privateMessages         PrivateMessage[]
+  vents                   Vent[]
+  reportsFiled            Report[]         @relation("ReportFiler")
+  reportsReceived         Report[]         @relation("ReportTarget")
+  blockedUsers            BlockedUser[]    @relation("Blocker")
+  blockedByUsers          BlockedUser[]    @relation("Blocked")
+  warningsReceived        Warning[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────
+// INTENT TAGS
+// ─────────────────────────────────────
+
+model IntentTag {
+  id        Int          @id @default(autoincrement())
+  tagName   String       @unique @map("tag_name")
+  isActive  Boolean      @default(true) @map("is_active")
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  userIntents UserIntent[]
+
+  @@map("intent_tags")
+}
+
+model UserIntent {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  intentTagId Int      @map("intent_tag_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  intentTag IntentTag @relation(fields: [intentTagId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, intentTagId])
+  @@map("user_intents")
+}
+
+// ─────────────────────────────────────
+// SUBSCRIPTIONS
+// ─────────────────────────────────────
+
+enum PlanType {
+  monthly
+  yearly
+}
+
+enum Platform {
+  apple
+  google
+}
+
+model Subscription {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  planType      PlanType @map("plan_type")
+  platform      Platform
+  startDate     DateTime @map("start_date")
+  expiryDate    DateTime @map("expiry_date")
+  isActive      Boolean  @default(true) @map("is_active")
+  transactionId String   @map("transaction_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────
+// ROOMS & GROUP CHAT (ASYNC FEED)
+// ─────────────────────────────────────
+
+model Room {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  members  RoomMember[]
+  messages RoomMessage[]
+
+  @@map("rooms")
+}
+
+model RoomMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  roomId   String   @map("room_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  // Relations
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@map("room_members")
+}
+
+model RoomMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  roomId      String   @map("room_id") @db.Uuid
+  senderId    String   @map("sender_id") @db.Uuid
+  messageText String   @map("message_text")
+  isFlagged   Boolean  @default(false) @map("is_flagged")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  room   Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([createdAt])
+  @@map("room_messages")
+}
+
+// ─────────────────────────────────────
+// ONE-ON-ONE PRIVATE CHAT
+// ─────────────────────────────────────
+
+enum MatchStatus {
+  active
+  ended
+  blocked
+}
+
+model PrivateMatch {
+  id              String      @id @default(uuid()) @db.Uuid
+  userOneId       String      @map("user_one_id") @db.Uuid
+  userTwoId       String      @map("user_two_id") @db.Uuid
+  matchedAt       DateTime    @default(now()) @map("matched_at")
+  endedAt         DateTime?   @map("ended_at")
+  durationSeconds Int?        @map("duration_seconds")
+  status          MatchStatus @default(active)
+
+  // Relations
+  userOne  User             @relation("MatchUserOne", fields: [userOneId], references: [id], onDelete: Cascade)
+  userTwo  User             @relation("MatchUserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
+  messages PrivateMessage[]
+
+  @@map("private_matches")
+}
+
+model PrivateMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  matchId     String   @map("match_id") @db.Uuid
+  senderId    String   @map("sender_id") @db.Uuid
+  messageText String   @map("message_text")
+  isFlagged   Boolean  @default(false) @map("is_flagged")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  match  PrivateMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@index([createdAt])
+  @@map("private_messages")
+}
+
+// ─────────────────────────────────────
+// ANONYMOUS VENTING
+// ─────────────────────────────────────
+
+model Vent {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  content      String
+  autoDeleteAt DateTime? @map("auto_delete_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([autoDeleteAt])
+  @@map("vents")
+}
+
+model VentPrompt {
+  id        Int      @id @default(autoincrement())
+  question  String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("vent_prompts")
+}
+
+// ─────────────────────────────────────
+// SAFETY & MODERATION
+// ─────────────────────────────────────
+
+enum ReportStatus {
+  pending
+  reviewed
+  resolved
+}
+
+model Report {
+  id             String       @id @default(uuid()) @db.Uuid
+  reportedBy     String       @map("reported_by") @db.Uuid
+  targetUserId   String       @map("target_user_id") @db.Uuid
+  messageId      String?      @map("message_id") @db.Uuid
+  roomId         String?      @map("room_id") @db.Uuid
+  privateMatchId String?      @map("private_match_id") @db.Uuid
+  reason         String
+  status         ReportStatus @default(pending)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  reporter   User @relation("ReportFiler", fields: [reportedBy], references: [id], onDelete: Cascade)
+  targetUser User @relation("ReportTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+model BlockedUser {
+  id        String   @id @default(uuid()) @db.Uuid
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@map("blocked_users")
+}
+
+// ─────────────────────────────────────
+// MODERATOR / ADMIN PANEL (separate from app users)
+// ─────────────────────────────────────
+
+enum ModeratorRole {
+  moderator
+  admin
+}
+
+model Moderator {
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  name         String
+  role         ModeratorRole @default(moderator)
+  totpSecret   String?       @map("totp_secret")
+  isTotpEnabled Boolean      @default(false) @map("is_totp_enabled")
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  warnings       Warning[]
+  auditLogs      AuditLog[]
+  moderatorNotes ModeratorNote[]
+
+  @@map("moderators")
+}
+
+model Warning {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  issuedBy    String   @map("issued_by") @db.Uuid
+  reason      String
+  message     String   // Message sent to the user
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moderator Moderator @relation(fields: [issuedBy], references: [id], onDelete: Cascade)
+
+  @@map("warnings")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  moderatorId String   @map("moderator_id") @db.Uuid
+  action      String   // e.g. "warn", "suspend", "ban", "mark_safe"
+  targetUserId String? @map("target_user_id") @db.Uuid
+  reason      String?
+  metadata    Json?    // Additional context
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  moderator Moderator @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+
+  @@index([moderatorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model ModeratorNote {
+  id          String   @id @default(uuid()) @db.Uuid
+  moderatorId String   @map("moderator_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  content     String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  moderator Moderator @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("moderator_notes")
+}
