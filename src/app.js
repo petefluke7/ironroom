@@ -66,6 +66,26 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Debug endpoint to check env vars and DB connectivity
+app.get('/health/debug', async (req, res) => {
+    const checks = {
+        DATABASE_URL: !!process.env.DATABASE_URL ? 'SET' : 'MISSING',
+        JWT_SECRET: !!process.env.JWT_SECRET ? 'SET' : 'MISSING',
+        REDIS_URL: !!process.env.REDIS_URL ? 'SET' : 'MISSING',
+        NODE_ENV: process.env.NODE_ENV || 'not set',
+        nodeVersion: process.version,
+    };
+    try {
+        const prisma = require('./config/database');
+        const count = await prisma.moderator.count();
+        checks.database = 'CONNECTED';
+        checks.moderatorCount = count;
+    } catch (e) {
+        checks.database = 'ERROR: ' + e.message;
+    }
+    res.json(checks);
+});
+
 // ─── API Routes ──────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
@@ -93,9 +113,7 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err);
     res.status(500).json({
-        error: process.env.NODE_ENV === 'production'
-            ? 'Internal server error'
-            : err.message,
+        error: err.message || 'Internal server error',
     });
 });
 
