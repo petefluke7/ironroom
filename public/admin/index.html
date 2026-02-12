@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IronRoom Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    :root {
+      --bg: #0d0d12;
+      --surface: #16161e;
+      --surface2: #1e1e2a;
+      --border: #2a2a3a;
+      --accent: #d4a44a;
+      --accent-dim: #b8892e;
+      --text: #e8e6e0;
+      --text2: #9a9aac;
+      --text3: #5a5a6e;
+      --red: #e05555;
+      --green: #4caf50;
+      --blue: #5b8def
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh
+    }
+
+    /* LOGIN */
+    .login-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 380px
+    }
+
+    .login-card h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--accent)
+    }
+
+    .login-card p {
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 28px
+    }
+
+    .form-group {
+      margin-bottom: 16px
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border .2s;
+      font-family: inherit
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: var(--accent)
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 60px
+    }
+
+    .btn {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+      color: #0d0d12;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      transition: opacity .2s
+    }
+
+    .btn:hover {
+      opacity: .9
+    }
+
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed
+    }
+
+    .btn-full {
+      width: 100%
+    }
+
+    .error-msg {
+      color: var(--red);
+      font-size: 12px;
+      margin-top: 8px
+    }
+
+    /* LAYOUT */
+    .app {
+      display: none;
+      height: 100vh;
+      overflow: hidden
+    }
+
+    .sidebar {
+      width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      height: 100vh;
+      overflow-y: auto
+    }
+
+    .sidebar .logo {
+      padding: 0 20px 24px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .sidebar .logo span {
+      font-size: 22px
+    }
+
+    .nav-item {
+      padding: 10px 20px;
+      font-size: 13px;
+      color: var(--text2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all .15s;
+      border-left: 3px solid transparent
+    }
+
+    .nav-item:hover {
+      color: var(--text);
+      background: var(--surface2)
+    }
+
+    .nav-item.active {
+      color: var(--accent);
+      background: rgba(212, 164, 74, .06);
+      border-left-color: var(--accent)
+    }
+
+    .nav-section {
+      padding: 10px 20px 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text3);
+      margin-top: 12px
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border)
+    }
+
+    .sidebar-footer .admin-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text)
+    }
+
+    .sidebar-footer .admin-role {
+      font-size: 11px;
+      color: var(--text3)
+    }
+
+    .sidebar-footer .logout-btn {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--red);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-family: inherit
+    }
+
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px
+    }
+
+    .page {
+      display: none
+    }
+
+    .page.active {
+      display: block
+    }
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: -14px;
+      margin-bottom: 20px
+    }
+
+    /* CARDS */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px
+    }
+
+    .stat-card .label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 6px
+    }
+
+    .stat-card .value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text)
+    }
+
+    .stat-card .value.accent {
+      color: var(--accent)
+    }
+
+    .stat-card .value.red {
+      color: var(--red)
+    }
+
+    /* TABLE */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 20px
+    }
+
+    .table-header {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px
+    }
+
+    .table-header h3 {
+      font-size: 14px;
+      font-weight: 600
+    }
+
+    .search-box {
+      padding: 8px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      width: 240px;
+      font-family: inherit
+    }
+
+    .search-box:focus {
+      border-color: var(--accent)
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 18px;
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 500
+    }
+
+    td {
+      padding: 12px 18px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(42, 42, 58, .5)
+    }
+
+    tr:last-child td {
+      border-bottom: none
+    }
+
+    tr:hover {
+      background: rgba(212, 164, 74, .02)
+    }
+
+    .badge {
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 500;
+      display: inline-block
+    }
+
+    .badge.pending {
+      background: rgba(91, 141, 239, .15);
+      color: var(--blue)
+    }
+
+    .badge.resolved {
+      background: rgba(76, 175, 80, .12);
+      color: var(--green)
+    }
+
+    .badge.active {
+      background: rgba(76, 175, 80, .12);
+      color: var(--green)
+    }
+
+    .badge.inactive {
+      background: rgba(224, 85, 85, .12);
+      color: var(--red)
+    }
+
+    .badge.high {
+      background: rgba(224, 85, 85, .12);
+      color: var(--red)
+    }
+
+    .badge.medium {
+      background: rgba(212, 164, 74, .15);
+      color: var(--accent)
+    }
+
+    .badge.low {
+      background: rgba(76, 175, 80, .12);
+      color: var(--green)
+    }
+
+    .action-btn {
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit
+    }
+
+    .action-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .action-btn.danger {
+      border-color: rgba(224, 85, 85, .3)
+    }
+
+    .action-btn.danger:hover {
+      border-color: var(--red);
+      color: var(--red)
+    }
+
+    .action-btn.active-filter {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .empty-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--text3);
+      font-size: 14px
+    }
+
+    .flex {
+      display: flex
+    }
+
+    .gap-8 {
+      gap: 8px
+    }
+
+    .gap-10 {
+      gap: 10px
+    }
+
+    .items-center {
+      align-items: center
+    }
+
+    .justify-between {
+      justify-content: space-between
+    }
+
+    .flex-wrap {
+      flex-wrap: wrap
+    }
+
+    /* ITEM CARD */
+    .item-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      transition: border .15s
+    }
+
+    .item-card:hover {
+      border-color: var(--accent)
+    }
+
+    .item-card .info {
+      flex: 1;
+      min-width: 0
+    }
+
+    .item-card .info h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .item-card .info p {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.4
+    }
+
+    .item-card .meta {
+      text-align: right;
+      font-size: 12px;
+      color: var(--text3);
+      white-space: nowrap
+    }
+
+    .item-card .actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      justify-content: flex-end
+    }
+
+    /* INLINE EDIT */
+    .inline-input {
+      padding: 6px 10px;
+      background: var(--surface2);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      width: 100%;
+      font-family: inherit
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .6);
+      display: none;
+      z-index: 100;
+      align-items: center;
+      justify-content: center
+    }
+
+    .modal-overlay.show {
+      display: flex
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      width: 90%;
+      max-width: 440px
+    }
+
+    .modal h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px
+    }
+
+    .modal .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px
+    }
+
+    .modal .btn-row .btn {
+      flex: 1
+    }
+
+    .btn-cancel {
+      background: var(--surface2) !important;
+      color: var(--text2) !important;
+      border: 1px solid var(--border) !important
+    }
+
+    .btn-danger {
+      background: var(--red) !important;
+      color: #fff !important
+    }
+
+    /* RESPONSIVE */
+    @media(max-width:768px) {
+      .sidebar {
+        width: 60px;
+        overflow: hidden
+      }
+
+      .sidebar .logo span {
+        display: block
+      }
+
+      .sidebar .logo {
+        font-size: 0;
+        padding: 0 10px 20px;
+        justify-content: center
+      }
+
+      .nav-item {
+        padding: 12px;
+        justify-content: center
+      }
+
+      .nav-item .nav-label {
+        display: none
+      }
+
+      .nav-section {
+        display: none
+      }
+
+      .sidebar-footer {
+        display: none
+      }
+
+      .main {
+        padding: 16px
+      }
+
+      .stat-grid {
+        grid-template-columns: repeat(2, 1fr)
+      }
+
+      .item-card {
+        flex-direction: column;
+        align-items: flex-start
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- LOGIN -->
+  <div class="login-wrap" id="loginPage">
+    <div class="login-card">
+      <h1>🛡️ IronRoom</h1>
+      <p>Admin Panel — Sign in to continue</p>
+      <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="admin@ironroom.app">
+      </div>
+      <div class="form-group"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')login()"></div>
+      <button class="btn btn-full" onclick="login()">Sign In</button>
+      <div id="loginError" class="error-msg"></div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div class="app" id="appLayout">
+    <aside class="sidebar">
+      <div class="logo"><span>🛡️</span> IronRoom</div>
+
+      <div class="nav-section">Overview</div>
+      <div class="nav-item active" onclick="showPage('dashboard')" data-page="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+        <span class="nav-label">Dashboard</span>
+      </div>
+
+      <div class="nav-section">Moderation</div>
+      <div class="nav-item" onclick="showPage('users')" data-page="users">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+        <span class="nav-label">Users</span>
+      </div>
+      <div class="nav-item" onclick="showPage('reports')" data-page="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <span class="nav-label">Reports</span>
+      </div>
+
+      <div class="nav-section">Content</div>
+      <div class="nav-item" onclick="showPage('rooms')" data-page="rooms">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <span class="nav-label">Rooms</span>
+      </div>
+      <div class="nav-item" onclick="showPage('intents')" data-page="intents">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+          <line x1="7" y1="7" x2="7.01" y2="7" />
+        </svg>
+        <span class="nav-label">Intents</span>
+      </div>
+      <div class="nav-item" onclick="showPage('prompts')" data-page="prompts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+        </svg>
+        <span class="nav-label">Prompts</span>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="admin-name" id="adminName">Admin</div>
+        <div class="admin-role" id="adminRole">admin</div>
+        <button class="logout-btn" onclick="logout()">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <h2 class="page-title">Dashboard</h2>
+        <div class="stat-grid" id="dashStats"></div>
+        <div class="stat-grid" id="modStats"></div>
+      </div>
+
+      <!-- USERS -->
+      <div class="page" id="page-users">
+        <h2 class="page-title">Users</h2>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Search Users</h3><input class="search-box" id="userSearch" placeholder="Search by name, email..."
+              onkeyup="searchUsersDebounce(event)">
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Risk</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr>
+                <td colspan="6" class="empty-state">Search for users above</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>⚠️ High Risk Users</h3>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Risk Score</th>
+                <th>Reports</th>
+                <th>Warnings</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="highRiskBody">
+              <tr>
+                <td colspan="5" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="page" id="page-reports">
+        <h2 class="page-title">Reports</h2>
+        <div class="flex gap-10" style="margin-bottom:16px">
+          <button class="action-btn active-filter" onclick="loadReports('pending')" id="filter-pending">Pending</button>
+          <button class="action-btn" onclick="loadReports('resolved')" id="filter-resolved">Resolved</button>
+          <button class="action-btn" onclick="loadReports('')" id="filter-all">All</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Reporter</th>
+                <th>Target</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reportsBody">
+              <tr>
+                <td colspan="6" class="empty-state">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ROOMS -->
+      <div class="page" id="page-rooms">
+        <h2 class="page-title">Rooms</h2>
+        <p class="page-subtitle">Manage discussion rooms. Add, edit, or deactivate rooms that users see in the app.</p>
+        <button class="btn" style="margin-bottom:18px" onclick="showModal('roomModal')">+ Create Room</button>
+        <div id="roomsList"></div>
+      </div>
+
+      <!-- INTENTS -->
+      <div class="page" id="page-intents">
+        <h2 class="page-title">Intent Tags</h2>
+        <p class="page-subtitle">Manage the intent selection options users see during onboarding (e.g. Stress,
+          Loneliness, Career Pressure).</p>
+        <button class="btn" style="margin-bottom:18px" onclick="showModal('intentModal')">+ Add Intent Tag</button>
+        <div id="intentsList"></div>
+      </div>
+
+      <!-- PROMPTS -->
+      <div class="page" id="page-prompts">
+        <h2 class="page-title">Vent Prompts</h2>
+        <p class="page-subtitle">Manage the daily prompts shown in the Vent Space. Users see one prompt at a time and
+          can cycle through them.</p>
+        <button class="btn" style="margin-bottom:18px" onclick="showModal('promptModal')">+ Add Prompt</button>
+        <div id="promptsList"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <div class="modal-overlay" id="warnModal">
+    <div class="modal">
+      <h3>⚠️ Warn User</h3>
+      <div class="form-group"><label>Reason</label><input id="warnReason" placeholder="Reason for warning"></div>
+      <div class="btn-row"><button class="btn btn-cancel" onclick="closeModal('warnModal')">Cancel</button><button
+          class="btn" onclick="submitWarn()">Send Warning</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="suspendModal">
+    <div class="modal">
+      <h3>🚫 Suspend User</h3>
+      <div class="form-group"><label>Duration</label>
+        <select id="suspendDuration">
+          <option value="24h">24 Hours</option>
+          <option value="3d">3 Days</option>
+          <option value="7d">7 Days</option>
+          <option value="30d">30 Days</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Reason</label><input id="suspendReason" placeholder="Reason for suspension"></div>
+      <div class="btn-row"><button class="btn btn-cancel" onclick="closeModal('suspendModal')">Cancel</button><button
+          class="btn btn-danger" onclick="submitSuspend()">Suspend</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="roomModal">
+    <div class="modal">
+      <h3 id="roomModalTitle">Create Room</h3>
+      <input type="hidden" id="editRoomId">
+      <div class="form-group"><label>Name</label><input id="roomName" placeholder="e.g. Work Pressure"></div>
+      <div class="form-group"><label>Description</label><textarea id="roomDesc"
+          placeholder="A space for men dealing with..."></textarea></div>
+      <div class="btn-row"><button class="btn btn-cancel" onclick="closeModal('roomModal')">Cancel</button><button
+          class="btn" onclick="submitRoom()">Save</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="intentModal">
+    <div class="modal">
+      <h3 id="intentModalTitle">Add Intent Tag</h3>
+      <input type="hidden" id="editIntentId">
+      <div class="form-group"><label>Tag Name</label><input id="intentName" placeholder="e.g. anger_management"></div>
+      <div class="btn-row"><button class="btn btn-cancel" onclick="closeModal('intentModal')">Cancel</button><button
+          class="btn" onclick="submitIntent()">Save</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="promptModal">
+    <div class="modal">
+      <h3 id="promptModalTitle">Add Vent Prompt</h3>
+      <input type="hidden" id="editPromptId">
+      <div class="form-group"><label>Prompt Question</label><textarea id="promptQuestion"
+          placeholder="What are you avoiding this week?"></textarea></div>
+      <div class="btn-row"><button class="btn btn-cancel" onclick="closeModal('promptModal')">Cancel</button><button
+          class="btn" onclick="submitPrompt()">Save</button></div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    let token = localStorage.getItem('ir_admin_token');
+    let adminInfo = JSON.parse(localStorage.getItem('ir_admin_info') || 'null');
+    let selectedUserId = null;
+    let searchTimer = null;
+
+    // ─── AUTH ──────────────────────────────────────
+    async function login() {
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const errEl = document.getElementById('loginError');
+      errEl.textContent = '';
+      try {
+        const res = await fetch(API + '/api/admin/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        if (data.requires2fa) { errEl.textContent = '2FA not supported in web panel yet'; return; }
+        token = data.token; adminInfo = data.moderator;
+        localStorage.setItem('ir_admin_token', token);
+        localStorage.setItem('ir_admin_info', JSON.stringify(adminInfo));
+        enterApp();
+      } catch (e) { errEl.textContent = e.message; }
+    }
+    function logout() {
+      token = null; adminInfo = null;
+      localStorage.removeItem('ir_admin_token'); localStorage.removeItem('ir_admin_info');
+      document.getElementById('loginPage').style.display = 'flex';
+      document.getElementById('appLayout').style.display = 'none';
+    }
+    function enterApp() {
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('appLayout').style.display = 'flex';
+      if (adminInfo) { document.getElementById('adminName').textContent = adminInfo.name; document.getElementById('adminRole').textContent = adminInfo.role; }
+      loadDashboard();
+    }
+
+    // ─── API HELPER ───────────────────────────────
+    async function api(path, opts = {}) {
+      const res = await fetch(API + path, { ...opts, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...(opts.headers || {}) } });
+      if (res.status === 401) { logout(); throw new Error('Session expired'); }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'API Error');
+      return data;
+    }
+
+    // ─── NAVIGATION ───────────────────────────────
+    function showPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      document.querySelector('[data-page="' + name + '"]').classList.add('active');
+      const loaders = { dashboard: loadDashboard, users: loadHighRisk, reports: () => loadReports('pending'), rooms: loadRooms, intents: loadIntents, prompts: loadPrompts };
+      if (loaders[name]) loaders[name]();
+    }
+
+    // ─── MODALS ───────────────────────────────────
+    function showModal(id) { document.getElementById(id).classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+    // ─── DASHBOARD ────────────────────────────────
+    async function loadDashboard() {
+      try {
+        const s = await api('/api/admin/analytics/dashboard');
+        document.getElementById('dashStats').innerHTML =
+          card('Total Users', s.totalUsers, 'accent') + card('New Today', s.newUsersToday) + card('Active Users', s.activeUsers) +
+          card('Open Reports', s.openReports, 'red') + card('Active Chats', s.activePrivateChats) + card('Rooms', s.totalRooms);
+        const m = await api('/api/admin/analytics/moderation-summary');
+        document.getElementById('modStats').innerHTML =
+          card('Reports Reviewed', m.reportsReviewed) + card('Warnings', m.warningsIssued) + card('Suspensions', m.suspensionsIssued) + card('Bans', m.bansIssued);
+      } catch (e) { document.getElementById('dashStats').innerHTML = card('Error', e.message); }
+    }
+    function card(label, value, cls = '') { return `<div class="stat-card"><div class="label">${label}</div><div class="value ${cls}">${value}</div></div>`; }
+
+    // ─── USERS ────────────────────────────────────
+    function searchUsersDebounce(e) { clearTimeout(searchTimer); searchTimer = setTimeout(() => searchUsers(e.target.value), 400); }
+    async function searchUsers(q) {
+      if (!q || q.length < 2) return;
+      try {
+        const data = await api('/api/admin/users/search?q=' + encodeURIComponent(q));
+        const body = document.getElementById('usersBody');
+        if (!data.users.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No users found</td></tr>'; return; }
+        body.innerHTML = data.users.map(u => `<tr>
+      <td><strong>${esc(u.displayName)}</strong></td><td style="color:var(--text2)">${esc(u.email || '—')}</td>
+      <td><span class="badge ${u.riskLevel === 'high' ? 'high' : u.riskLevel === 'medium' ? 'medium' : 'low'}">${u.riskScore} (${u.riskLevel})</span></td>
+      <td>${u.isSuspended ? '<span class="badge inactive">Suspended</span>' : '<span class="badge active">Active</span>'}</td>
+      <td style="color:var(--text3)">${new Date(u.createdAt).toLocaleDateString()}</td>
+      <td><button class="action-btn" onclick="openWarn('${u.id}')">Warn</button> <button class="action-btn danger" onclick="openSuspend('${u.id}')">Suspend</button></td>
+    </tr>`).join('');
+      } catch (e) { console.error(e); }
+    }
+    async function loadHighRisk() {
+      try {
+        const data = await api('/api/admin/users/high-risk');
+        const body = document.getElementById('highRiskBody');
+        if (!data.users.length) { body.innerHTML = '<tr><td colspan="5" class="empty-state">No high-risk users 🎉</td></tr>'; return; }
+        body.innerHTML = data.users.map(u => `<tr>
+      <td><strong>${esc(u.displayName)}</strong></td><td>${u.riskScore}</td><td>${u._count?.reportsReceived || 0}</td><td>${u._count?.warningsReceived || 0}</td>
+      <td><button class="action-btn" onclick="openWarn('${u.id}')">Warn</button> <button class="action-btn danger" onclick="openSuspend('${u.id}')">Suspend</button></td>
+    </tr>`).join('');
+      } catch (e) { document.getElementById('highRiskBody').innerHTML = `<tr><td colspan="5" class="empty-state">${e.message}</td></tr>`; }
+    }
+    function openWarn(id) { selectedUserId = id; showModal('warnModal'); }
+    function openSuspend(id) { selectedUserId = id; showModal('suspendModal'); }
+    async function submitWarn() {
+      const reason = document.getElementById('warnReason').value; if (!reason) return;
+      try { await api('/api/admin/users/' + selectedUserId + '/warn', { method: 'POST', body: JSON.stringify({ reason }) }); alert('Warning issued'); closeModal('warnModal'); document.getElementById('warnReason').value = ''; } catch (e) { alert(e.message); }
+    }
+    async function submitSuspend() {
+      const duration = document.getElementById('suspendDuration').value, reason = document.getElementById('suspendReason').value; if (!reason) return;
+      try { await api('/api/admin/users/' + selectedUserId + '/suspend', { method: 'POST', body: JSON.stringify({ duration, reason }) }); alert('User suspended'); closeModal('suspendModal'); document.getElementById('suspendReason').value = ''; } catch (e) { alert(e.message); }
+    }
+
+    // ─── REPORTS ──────────────────────────────────
+    async function loadReports(status) {
+      document.querySelectorAll('[id^="filter-"]').forEach(b => b.classList.remove('active-filter'));
+      document.getElementById('filter-' + (status || 'all')).classList.add('active-filter');
+      try {
+        const data = await api('/api/admin/reports' + (status ? '?status=' + status : ''));
+        const body = document.getElementById('reportsBody');
+        if (!data.reports.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No reports</td></tr>'; return; }
+        body.innerHTML = data.reports.map(r => `<tr>
+      <td>${esc(r.reporter?.displayName || 'Anon')}</td><td><strong>${esc(r.targetUser?.displayName || '—')}</strong></td>
+      <td>${esc(r.reason)}</td><td><span class="badge ${r.status}">${r.status}</span></td>
+      <td style="color:var(--text3)">${new Date(r.createdAt).toLocaleDateString()}</td>
+      <td>${r.status === 'pending' ? `<button class="action-btn" onclick="resolveReport('${r.id}','mark_safe')">Safe</button> <button class="action-btn danger" onclick="resolveReport('${r.id}','warned')">Act</button>` : '—'}</td>
+    </tr>`).join('');
+      } catch (e) { document.getElementById('reportsBody').innerHTML = `<tr><td colspan="6" class="empty-state">${e.message}</td></tr>`; }
+    }
+    async function resolveReport(id, action) {
+      if (!confirm('Resolve as "' + action + '"?')) return;
+      try { await api('/api/admin/reports/' + id + '/resolve', { method: 'PUT', body: JSON.stringify({ action }) }); loadReports('pending'); } catch (e) { alert(e.message); }
+    }
+
+    // ─── ROOMS ────────────────────────────────────
+    async function loadRooms() {
+      try {
+        const data = await api('/api/admin/rooms');
+        const el = document.getElementById('roomsList');
+        if (!data.rooms.length) { el.innerHTML = '<div class="empty-state">No rooms yet. Create your first room!</div>'; return; }
+        el.innerHTML = data.rooms.map(r => `
+      <div class="item-card">
+        <div class="info">
+          <h4>${esc(r.name)} <span class="badge ${r.isActive ? 'active' : 'inactive'}">${r.isActive ? 'Active' : 'Inactive'}</span></h4>
+          <p>${esc(r.description)}</p>
+        </div>
+        <div>
+          <div class="meta">${r._count?.members || 0} members · ${r._count?.messages || 0} messages</div>
+          <div class="actions">
+            <button class="action-btn" onclick="editRoom('${r.id}',${JSON.stringify(esc(r.name)).replace(/'/g, "\\'")},${JSON.stringify(esc(r.description)).replace(/'/g, "\\'")})">Edit</button>
+            <button class="action-btn danger" onclick="toggleRoom('${r.id}',${!r.isActive})">${r.isActive ? 'Deactivate' : 'Activate'}</button>
+          </div>
+        </div>
+      </div>`).join('');
+      } catch (e) { document.getElementById('roomsList').innerHTML = `<div class="empty-state">${e.message}</div>`; }
+    }
+    function editRoom(id, name, desc) {
+      document.getElementById('roomModalTitle').textContent = 'Edit Room';
+      document.getElementById('editRoomId').value = id;
+      document.getElementById('roomName').value = name;
+      document.getElementById('roomDesc').value = desc;
+      showModal('roomModal');
+    }
+    async function submitRoom() {
+      const id = document.getElementById('editRoomId').value;
+      const name = document.getElementById('roomName').value, description = document.getElementById('roomDesc').value;
+      if (!name || !description) return;
+      try {
+        if (id) { await api('/api/admin/rooms/' + id, { method: 'PUT', body: JSON.stringify({ name, description }) }); }
+        else { await api('/api/admin/rooms', { method: 'POST', body: JSON.stringify({ name, description }) }); }
+        closeModal('roomModal'); resetRoomModal(); loadRooms();
+      } catch (e) { alert(e.message); }
+    }
+    async function toggleRoom(id, isActive) { try { await api('/api/admin/rooms/' + id, { method: 'PUT', body: JSON.stringify({ isActive }) }); loadRooms(); } catch (e) { alert(e.message); } }
+    function resetRoomModal() { document.getElementById('roomModalTitle').textContent = 'Create Room'; document.getElementById('editRoomId').value = ''; document.getElementById('roomName').value = ''; document.getElementById('roomDesc').value = ''; }
+
+    // ─── INTENTS ──────────────────────────────────
+    async function loadIntents() {
+      try {
+        const data = await api('/api/admin/intents');
+        const el = document.getElementById('intentsList');
+        if (!data.tags.length) { el.innerHTML = '<div class="empty-state">No intent tags. Add your first one!</div>'; return; }
+        el.innerHTML = data.tags.map(t => `
+      <div class="item-card">
+        <div class="info">
+          <h4>${formatTagName(t.tagName)} <span class="badge ${t.isActive !== false ? 'active' : 'inactive'}">${t.isActive !== false ? 'Active' : 'Inactive'}</span></h4>
+          <p>Tag: <code style="color:var(--accent)">${esc(t.tagName)}</code> · ${t._count?.userIntents || 0} users selected this</p>
+        </div>
+        <div class="actions">
+          <button class="action-btn" onclick="editIntent(${t.id},'${esc(t.tagName)}')">Rename</button>
+          <button class="action-btn danger" onclick="deactivateIntent(${t.id},${t.isActive !== false})">${t.isActive !== false ? 'Deactivate' : 'Activate'}</button>
+        </div>
+      </div>`).join('');
+      } catch (e) { document.getElementById('intentsList').innerHTML = `<div class="empty-state">${e.message}</div>`; }
+    }
+    function editIntent(id, name) {
+      document.getElementById('intentModalTitle').textContent = 'Edit Intent Tag';
+      document.getElementById('editIntentId').value = id;
+      document.getElementById('intentName').value = name;
+      showModal('intentModal');
+    }
+    async function submitIntent() {
+      const id = document.getElementById('editIntentId').value;
+      const tagName = document.getElementById('intentName').value;
+      if (!tagName) return;
+      try {
+        if (id) { await api('/api/admin/intents/' + id, { method: 'PUT', body: JSON.stringify({ tagName }) }); }
+        else { await api('/api/admin/intents', { method: 'POST', body: JSON.stringify({ tagName }) }); }
+        closeModal('intentModal'); resetIntentModal(); loadIntents();
+      } catch (e) { alert(e.message); }
+    }
+    async function deactivateIntent(id, isCurrentlyActive) {
+      const action = isCurrentlyActive ? 'deactivate' : 'activate';
+      if (!confirm(action.charAt(0).toUpperCase() + action.slice(1) + ' this intent tag?')) return;
+      try { await api('/api/admin/intents/' + id, { method: 'PUT', body: JSON.stringify({ isActive: !isCurrentlyActive }) }); loadIntents(); } catch (e) { alert(e.message); }
+    }
+    function resetIntentModal() { document.getElementById('intentModalTitle').textContent = 'Add Intent Tag'; document.getElementById('editIntentId').value = ''; document.getElementById('intentName').value = ''; }
+
+    // ─── PROMPTS ──────────────────────────────────
+    async function loadPrompts() {
+      try {
+        const data = await api('/api/admin/prompts');
+        const el = document.getElementById('promptsList');
+        if (!data.prompts.length) { el.innerHTML = '<div class="empty-state">No prompts yet. Add your first one!</div>'; return; }
+        el.innerHTML = data.prompts.map(p => `
+      <div class="item-card">
+        <div class="info">
+          <h4 style="font-weight:400;font-style:italic">"${esc(p.question)}"</h4>
+          <p>Added ${new Date(p.createdAt).toLocaleDateString()}</p>
+        </div>
+        <div class="actions">
+          <button class="action-btn" onclick="editPrompt(${p.id},${JSON.stringify(esc(p.question))})">Edit</button>
+          <button class="action-btn danger" onclick="deletePrompt(${p.id})">Delete</button>
+        </div>
+      </div>`).join('');
+      } catch (e) { document.getElementById('promptsList').innerHTML = `<div class="empty-state">${e.message}</div>`; }
+    }
+    function editPrompt(id, question) {
+      document.getElementById('promptModalTitle').textContent = 'Edit Prompt';
+      document.getElementById('editPromptId').value = id;
+      document.getElementById('promptQuestion').value = question;
+      showModal('promptModal');
+    }
+    async function submitPrompt() {
+      const id = document.getElementById('editPromptId').value;
+      const question = document.getElementById('promptQuestion').value;
+      if (!question) return;
+      try {
+        if (id) { await api('/api/admin/prompts/' + id, { method: 'PUT', body: JSON.stringify({ question }) }); }
+        else { await api('/api/admin/prompts', { method: 'POST', body: JSON.stringify({ question }) }); }
+        closeModal('promptModal'); resetPromptModal(); loadPrompts();
+      } catch (e) { alert(e.message); }
+    }
+    async function deletePrompt(id) {
+      if (!confirm('Permanently delete this prompt?')) return;
+      try { await api('/api/admin/prompts/' + id, { method: 'DELETE' }); loadPrompts(); } catch (e) { alert(e.message); }
+    }
+    function resetPromptModal() { document.getElementById('promptModalTitle').textContent = 'Add Vent Prompt'; document.getElementById('editPromptId').value = ''; document.getElementById('promptQuestion').value = ''; }
+
+    // ─── UTILS ────────────────────────────────────
+    function esc(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+    function formatTagName(tag) { return tag.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+      m.addEventListener('click', e => { if (e.target === m) { m.classList.remove('show'); } });
+    });
+
+    // Reset modals on close
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+      const observer = new MutationObserver(() => {
+        if (!m.classList.contains('show')) {
+          const id = m.id;
+          if (id === 'roomModal') resetRoomModal();
+          if (id === 'intentModal') resetIntentModal();
+          if (id === 'promptModal') resetPromptModal();
+        }
+      });
+      observer.observe(m, { attributes: true, attributeFilter: ['class'] });
+    });
+
+    // ─── INIT ─────────────────────────────────────
+    if (token && adminInfo) { enterApp(); }
+  </script>
+</body>
+
+</html>
