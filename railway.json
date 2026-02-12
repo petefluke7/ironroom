@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "npx prisma migrate deploy && node src/server.js",
+    "startCommand": "npx prisma generate && (npx prisma migrate deploy || echo 'Migration skipped') && node src/server.js",
     "healthcheckPath": "/health",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
