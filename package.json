@@ -5,21 +5,19 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "build": "npx prisma generate && npx prisma db push --accept-data-loss && node prisma/seed.js",
     "seed": "node prisma/seed.js",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:push": "npx prisma db push",
     "test": "jest --passWithNoTests"
   },
-  "prisma": {
-    "seed": "node prisma/seed.js"
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",
