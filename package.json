@@ -19,7 +19,7 @@
   "license": "ISC",
   "description": "",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "dependencies": {
     "@prisma/client": "^7.3.0",
