@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -25,7 +26,18 @@ const adminAnalyticsRoutes = require('./routes/admin/analytics');
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            connectSrc: ["'self'"],
+            imgSrc: ["'self'", "data:"],
+        },
+    },
+}));
 app.use(cors({
     origin: process.env.CORS_ORIGIN || '*',
     credentials: true,
@@ -42,6 +54,12 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Rate limiting
 app.use('/api/', apiLimiter);
+
+// Serve admin panel static files
+app.use('/admin', express.static(path.join(__dirname, '..', 'public', 'admin')));
+
+// Root redirect to admin
+app.get('/', (req, res) => res.redirect('/admin/'));
 
 // Health check
 app.get('/health', (req, res) => {
