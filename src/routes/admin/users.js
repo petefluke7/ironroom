@@ -265,23 +265,48 @@ router.post('/:id/warn', async (req, res, next) => {
 router.post('/:id/verify', async (req, res, next) => {
     try {
         const userId = req.params.id;
+        const now = new Date();
+        const expiryDate = new Date(now);
+        expiryDate.setFullYear(expiryDate.getFullYear() + 99); // 99 years
 
-        await prisma.user.update({
-            where: { id: userId },
-            data: { isVerified: true },
-        });
+        await prisma.$transaction([
+            // Activate User
+            prisma.user.update({
+                where: { id: userId },
+                data: {
+                    isVerified: true,
+                    isActive: true, // Bypass payment check
+                },
+            }),
+            // Deactivate old subs
+            prisma.subscription.updateMany({
+                where: { userId, isActive: true },
+                data: { isActive: false }
+            }),
+            // Create "lifetime" sub
+            prisma.subscription.create({
+                data: {
+                    userId,
+                    planType: 'yearly',
+                    platform: 'apple', // Dummy platform
+                    transactionId: `manual_verify_${Date.now()}`,
+                    startDate: now,
+                    expiryDate,
+                    isActive: true,
+                }
+            }),
+            // Audit Log
+            prisma.auditLog.create({
+                data: {
+                    moderatorId: req.moderator.id,
+                    action: 'manual_verify_bypass',
+                    targetUserId: userId,
+                    reason: 'Manual verification & payment bypass',
+                }
+            })
+        ]);
 
-        // Audit log
-        await prisma.auditLog.create({
-            data: {
-                moderatorId: req.moderator.id,
-                action: 'manual_verify',
-                targetUserId: userId,
-                reason: 'Manual verification by admin',
-            },
-        });
-
-        res.json({ message: 'User manually verified' });
+        res.json({ message: 'User manually verified and activated (subscription granted)' });
     } catch (error) {
         next(error);
     }
