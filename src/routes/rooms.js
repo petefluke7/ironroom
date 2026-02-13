@@ -135,47 +135,42 @@ router.get('/:roomId/messages', requireSubscription, async (req, res, next) => {
                 messageText: true,
                 createdAt: true,
                 isFlagged: true,
+                replyToId: true,
                 sender: {
                     select: {
                         id: true,
                         displayName: true,
                         identityMode: true,
                     },
-                    sender: {
-                        select: {
-                            id: true,
-                            displayName: true,
-                            identityMode: true,
-                        },
-                    },
-                    replyTo: {
-                        select: {
-                            id: true,
-                            messageText: true,
-                            sender: {
-                                select: { displayName: true }
-                            }
-                        }
-                    },
                 },
-            };
+                replyTo: {
+                    select: {
+                        id: true,
+                        messageText: true,
+                        sender: {
+                            select: { displayName: true }
+                        }
+                    }
+                },
+            },
+        };
 
-            if(cursor) {
-                queryOptions.skip = 1;
-                queryOptions.cursor = { id: cursor };
-            }
+        if (cursor) {
+            queryOptions.skip = 1;
+            queryOptions.cursor = { id: cursor };
+        }
 
         const messages = await prisma.roomMessage.findMany(queryOptions);
 
-            res.json({
-                messages: messages.reverse(), // Return in chronological order
-                nextCursor: messages.length === take ? messages[messages.length - 1]?.id : null,
-                hasMore: messages.length === take,
-            });
-        } catch (error) {
-            next(error);
-        }
-    });
+        res.json({
+            messages: messages.reverse(), // Return in chronological order
+            nextCursor: messages.length === take ? messages[messages.length - 1]?.id : null,
+            hasMore: messages.length === take,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
 
 /**
  * POST /api/rooms/:roomId/messages
