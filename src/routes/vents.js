@@ -1,12 +1,13 @@
 const express = require('express');
 const prisma = require('../config/database');
-const { authenticate, requireNotSuspended } = require('../middleware/auth');
+const { authenticate, requireActive, requireNotSuspended } = require('../middleware/auth');
 const { requireSubscription } = require('../middleware/subscription');
 const { VENT_AUTO_DELETE_OPTIONS } = require('../utils/constants');
 
 const router = express.Router();
 
 router.use(authenticate);
+router.use(requireActive);
 
 /**
  * GET /api/vents

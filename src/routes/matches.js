@@ -1,7 +1,7 @@
 const express = require('express');
 const prisma = require('../config/database');
 const redis = require('../config/redis');
-const { authenticate, requireNotSuspended } = require('../middleware/auth');
+const { authenticate, requireActive, requireNotSuspended } = require('../middleware/auth');
 const { requireSubscription } = require('../middleware/subscription');
 const { matchLimiter } = require('../middleware/rateLimiter');
 const { MATCH_COOLDOWN_MS } = require('../utils/constants');
@@ -9,6 +9,7 @@ const { MATCH_COOLDOWN_MS } = require('../utils/constants');
 const router = express.Router();
 
 router.use(authenticate);
+router.use(requireActive);
 router.use(requireSubscription);
 
 /**

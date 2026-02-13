@@ -259,6 +259,35 @@ router.post('/:id/warn', async (req, res, next) => {
 });
 
 /**
+ * POST /api/admin/users/:id/verify
+ * Manually verify a user (fix for early signups)
+ */
+router.post('/:id/verify', async (req, res, next) => {
+    try {
+        const userId = req.params.id;
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: { isVerified: true },
+        });
+
+        // Audit log
+        await prisma.auditLog.create({
+            data: {
+                moderatorId: req.moderator.id,
+                action: 'manual_verify',
+                targetUserId: userId,
+                reason: 'Manual verification by admin',
+            },
+        });
+
+        res.json({ message: 'User manually verified' });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/admin/users/:id/suspend
  * Temporarily suspend a user
  */

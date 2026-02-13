@@ -35,10 +35,6 @@ const authenticate = async (req, res, next) => {
             return res.status(401).json({ error: 'User not found' });
         }
 
-        if (!user.isActive) {
-            return res.status(403).json({ error: 'Account is deactivated' });
-        }
-
         if (user.isSuspended) {
             if (user.suspendedUntil && new Date() < user.suspendedUntil) {
                 return res.status(403).json({
@@ -68,6 +64,16 @@ const authenticate = async (req, res, next) => {
 };
 
 /**
+ * Middleware to ensure account is fully active (completed onboarding/subscription)
+ */
+const requireActive = (req, res, next) => {
+    if (!req.user.isActive) {
+        return res.status(403).json({ error: 'Account is deactivated or setup incomplete' });
+    }
+    next();
+};
+
+/**
  * Middleware to check user is not suspended for write operations
  */
 const requireNotSuspended = (req, res, next) => {
@@ -79,4 +85,4 @@ const requireNotSuspended = (req, res, next) => {
     next();
 };
 
-module.exports = { authenticate, requireNotSuspended };
+module.exports = { authenticate, requireActive, requireNotSuspended };

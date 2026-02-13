@@ -1,11 +1,12 @@
 const express = require('express');
 const prisma = require('../config/database');
-const { authenticate, requireNotSuspended } = require('../middleware/auth');
+const { authenticate, requireActive, requireNotSuspended } = require('../middleware/auth');
 const { REPORT_REASONS } = require('../utils/constants');
 
 const router = express.Router();
 
 router.use(authenticate);
+router.use(requireActive);
 
 /**
  * POST /api/reports

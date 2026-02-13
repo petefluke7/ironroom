@@ -1,12 +1,13 @@
 const express = require('express');
 const prisma = require('../config/database');
-const { authenticate, requireNotSuspended } = require('../middleware/auth');
+const { authenticate, requireActive, requireNotSuspended } = require('../middleware/auth');
 const { requireSubscription } = require('../middleware/subscription');
 
 const router = express.Router();
 
-// All room routes require auth + subscription
+// All room routes require auth + active status + subscription (for some)
 router.use(authenticate);
+router.use(requireActive);
 
 /**
  * GET /api/rooms
