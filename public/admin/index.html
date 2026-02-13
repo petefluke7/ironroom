@@ -889,12 +889,26 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal" style="max-width: 650px;">
+      <h3>Report Details</h3>
+      <div id="reportDetailContent"
+        style="max-height:60vh;overflow-y:auto;margin-bottom:20px;font-size:13px;line-height:1.5">Loading...</div>
+      <div class="btn-row">
+        <button class="btn btn-cancel" onclick="closeModal('reportModal')">Close</button>
+        <div id="reportActions" style="display:flex;gap:10px;flex:1;justify-content:flex-end"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API = window.location.origin;
     let token = localStorage.getItem('ir_admin_token');
     let adminInfo = JSON.parse(localStorage.getItem('ir_admin_info') || 'null');
     let selectedUserId = null;
     let searchTimer = null;
+    let allRooms = [];
+    let allReports = [];
 
     // ─── AUTH ──────────────────────────────────────
     async function login() {
@@ -1018,25 +1032,79 @@
       document.getElementById('filter-' + (status || 'all')).classList.add('active-filter');
       try {
         const data = await api('/api/admin/reports' + (status ? '?status=' + status : ''));
+        allReports = data.reports;
         const body = document.getElementById('reportsBody');
         if (!data.reports.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No reports</td></tr>'; return; }
         body.innerHTML = data.reports.map(r => `<tr>
       <td>${esc(r.reporter?.displayName || 'Anon')}</td><td><strong>${esc(r.targetUser?.displayName || '—')}</strong></td>
       <td>${esc(r.reason)}</td><td><span class="badge ${r.status}">${r.status}</span></td>
       <td style="color:var(--text3)">${new Date(r.createdAt).toLocaleDateString()}</td>
-      <td>${r.status === 'pending' ? `<button class="action-btn" onclick="resolveReport('${r.id}','mark_safe')">Safe</button> <button class="action-btn danger" onclick="resolveReport('${r.id}','warned')">Act</button>` : '—'}</td>
+      <td>
+        <button class="action-btn" onclick="viewReport('${r.id}')">View</button>
+        ${r.status === 'pending' ? `<button class="action-btn" onclick="resolveReport('${r.id}','mark_safe')">Safe</button> <button class="action-btn danger" onclick="resolveReport('${r.id}','warned')">Act</button>` : ''}
+      </td>
     </tr>`).join('');
       } catch (e) { document.getElementById('reportsBody').innerHTML = `<tr><td colspan="6" class="empty-state">${e.message}</td></tr>`; }
     }
     async function resolveReport(id, action) {
       if (!confirm('Resolve as "' + action + '"?')) return;
-      try { await api('/api/admin/reports/' + id + '/resolve', { method: 'PUT', body: JSON.stringify({ action }) }); loadReports('pending'); } catch (e) { alert(e.message); }
+      try { await api('/api/admin/reports/' + id + '/resolve', { method: 'PUT', body: JSON.stringify({ action }) }); closeModal('reportModal'); loadReports('pending'); } catch (e) { alert(e.message); }
+    }
+    async function viewReport(id) {
+      showModal('reportModal');
+      const content = document.getElementById('reportDetailContent');
+      const actions = document.getElementById('reportActions');
+      content.innerHTML = 'Loading details...';
+      actions.innerHTML = '';
+
+      try {
+        const data = await api('/api/admin/reports/' + id);
+        const r = data.report;
+        const ctx = data.messageContext;
+
+        let html = `
+          <div style="margin-bottom:12px"><strong>Reporter:</strong> ${esc(r.reporter?.displayName)}</div>
+          <div style="margin-bottom:12px"><strong>Accused:</strong> ${esc(r.targetUser?.displayName)} (Risk: ${r.targetUser?.riskScore})</div>
+          <div style="margin-bottom:12px"><strong>Reason:</strong> ${esc(r.reason)}</div>
+          <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+        `;
+
+        if (ctx) {
+          html += `<h4 style="margin-bottom:10px">Conversation Context</h4>`;
+          if (ctx.messages && ctx.messages.length) {
+            html += `<div style="background:var(--surface2);padding:12px;border-radius:8px;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">`;
+            ctx.messages.forEach(m => {
+              const isReported = m.id === r.messageId;
+              html += `<div style="font-size:12px;${isReported ? 'background:rgba(224,85,85,0.15);border:1px solid var(--red);padding:6px;border-radius:6px' : ''}">
+                <strong style="color:${isReported ? 'var(--red)' : 'var(--text2)'}">${esc(m.sender?.displayName)}:</strong> 
+                <span style="color:${isReported ? 'var(--text)' : 'var(--text2)'}">${esc(m.messageText)}</span>
+              </div>`;
+            });
+            html += `</div>`;
+          }
+        } else {
+          html += `<div style="color:var(--text3);font-style:italic">No message context available (likely user report)</div>`;
+        }
+
+        content.innerHTML = html;
+
+        if (r.status === 'pending') {
+          actions.innerHTML = `
+            <button class="action-btn" onclick="resolveReport('${r.id}','mark_safe')">Mark Safe</button>
+            <button class="action-btn danger" onclick="resolveReport('${r.id}','warned')">Issue Warning</button>
+            <button class="action-btn danger" onclick="resolveReport('${r.id}','suspended')">Suspend User</button>
+          `;
+        }
+      } catch (e) {
+        content.innerHTML = `<span class="error-msg">${e.message}</span>`;
+      }
     }
 
     // ─── ROOMS ────────────────────────────────────
     async function loadRooms() {
       try {
         const data = await api('/api/admin/rooms');
+        allRooms = data.rooms;
         const el = document.getElementById('roomsList');
         if (!data.rooms.length) { el.innerHTML = '<div class="empty-state">No rooms yet. Create your first room!</div>'; return; }
         el.innerHTML = data.rooms.map(r => `
@@ -1048,7 +1116,7 @@
         <div>
           <div class="meta">${r._count?.members || 0} members · ${r._count?.messages || 0} messages</div>
           <div class="actions">
-            <button class="action-btn" onclick="editRoom('${r.id}',${JSON.stringify(esc(r.name)).replace(/'/g, "\\'")},${JSON.stringify(esc(r.description)).replace(/'/g, "\\'")})">Edit</button>
+            <button class="action-btn" onclick="editRoom('${r.id}')">Edit</button>
             <button class="action-btn danger" onclick="toggleRoom('${r.id}',${!r.isActive})">${r.isActive ? 'Deactivate' : 'Activate'}</button>
           </div>
         </div>
@@ -1056,10 +1124,12 @@
       } catch (e) { document.getElementById('roomsList').innerHTML = `<div class="empty-state">${e.message}</div>`; }
     }
     function editRoom(id, name, desc) {
+      const room = allRooms.find(r => r.id === id);
+      if (!room) return;
       document.getElementById('roomModalTitle').textContent = 'Edit Room';
-      document.getElementById('editRoomId').value = id;
-      document.getElementById('roomName').value = name;
-      document.getElementById('roomDesc').value = desc;
+      document.getElementById('editRoomId').value = room.id;
+      document.getElementById('roomName').value = room.name;
+      document.getElementById('roomDesc').value = room.description;
       showModal('roomModal');
     }
     async function submitRoom() {
@@ -1175,6 +1245,7 @@
           if (id === 'roomModal') resetRoomModal();
           if (id === 'intentModal') resetIntentModal();
           if (id === 'promptModal') resetPromptModal();
+          if (id === 'reportModal') { document.getElementById('reportDetailContent').innerHTML = 'Loading...'; document.getElementById('reportActions').innerHTML = ''; }
         }
       });
       observer.observe(m, { attributes: true, attributeFilter: ['class'] });
