@@ -974,11 +974,21 @@
         body.innerHTML = data.users.map(u => `<tr>
       <td><strong>${esc(u.displayName)}</strong></td><td style="color:var(--text2)">${esc(u.email || '—')}</td>
       <td><span class="badge ${u.riskLevel === 'high' ? 'high' : u.riskLevel === 'medium' ? 'medium' : 'low'}">${u.riskScore} (${u.riskLevel})</span></td>
-      <td>${u.isSuspended ? '<span class="badge inactive">Suspended</span>' : '<span class="badge active">Active</span>'}</td>
+      <td>
+        ${u.isSuspended ? '<span class="badge inactive">Suspended</span>' : u.isVerified ? '<span class="badge active">Active</span>' : '<span class="badge pending">Unverified</span>'}
+      </td>
       <td style="color:var(--text3)">${new Date(u.createdAt).toLocaleDateString()}</td>
-      <td><button class="action-btn" onclick="openWarn('${u.id}')">Warn</button> <button class="action-btn danger" onclick="openSuspend('${u.id}')">Suspend</button></td>
+      <td>
+        ${!u.isActive ? `<button class="action-btn active-filter" style="border-color:var(--green);color:var(--green)" onclick="verifyUser('${u.id}')">Activate</button>` : ''}
+        <button class="action-btn" onclick="openWarn('${u.id}')">Warn</button> 
+        <button class="action-btn danger" onclick="openSuspend('${u.id}')">Suspend</button>
+      </td>
     </tr>`).join('');
       } catch (e) { console.error(e); }
+    }
+    async function verifyUser(id) {
+      if (!confirm('Manually verify this user?')) return;
+      try { await api('/api/admin/users/' + id + '/verify', { method: 'POST' }); alert('User verified'); searchUsers(document.getElementById('userSearch').value); } catch (e) { alert(e.message); }
     }
     async function loadHighRisk() {
       try {
