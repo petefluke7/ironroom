@@ -42,6 +42,8 @@ const MATCH_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes after ending
 const VENT_AUTO_DELETE_OPTIONS = {
     '24h': 24 * 60 * 60 * 1000,
     '72h': 72 * 60 * 60 * 1000,
+    '24_hours': 24 * 60 * 60 * 1000,
+    '72_hours': 72 * 60 * 60 * 1000,
     'keep': null,
 };
 
