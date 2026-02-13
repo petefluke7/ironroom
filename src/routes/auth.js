@@ -59,8 +59,8 @@ router.post('/signup', async (req, res, next) => {
                 displayName,
                 identityMode,
                 deviceId: deviceId || null,
-                isVerified: false,
-                isActive: false, // Activated after verification + subscription
+                isVerified: true, // Auto-verified for now (MVP)
+                isActive: false, // Activated after subscription
             },
         });
 
