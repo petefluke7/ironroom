@@ -21,21 +21,57 @@ router.get('/', async (req, res, next) => {
                 id: true,
                 name: true,
                 description: true,
-                _count: {
-                    select: { members: true },
-                },
+                _count: { select: { members: true } },
+                members: {
+                    where: { userId: req.user.id },
+                    select: { lastReadAt: true }
+                }
             },
             orderBy: { createdAt: 'asc' },
         });
 
-        const formatted = rooms.map((room) => ({
-            id: room.id,
-            name: room.name,
-            description: room.description,
-            activeParticipants: room._count.members,
+        const formatted = await Promise.all(rooms.map(async (room) => {
+            const member = room.members[0];
+            let unreadCount = 0;
+
+            if (member && member.lastReadAt) {
+                unreadCount = await prisma.roomMessage.count({
+                    where: {
+                        roomId: room.id,
+                        createdAt: { gt: member.lastReadAt },
+                        senderId: { not: req.user.id }
+                    }
+                });
+            }
+
+            return {
+                id: room.id,
+                name: room.name,
+                description: room.description,
+                activeParticipants: room._count.members,
+                unreadCount,
+                lastReadAt: member?.lastReadAt
+            };
         }));
 
         res.json({ rooms: formatted });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/rooms/:roomId/read
+ * Mark room as read
+ */
+router.post('/:roomId/read', async (req, res, next) => {
+    try {
+        const { roomId } = req.params;
+        await prisma.roomMember.update({
+            where: { roomId_userId: { roomId, userId: req.user.id } },
+            data: { lastReadAt: new Date() }
+        });
+        res.json({ success: true });
     } catch (error) {
         next(error);
     }
@@ -99,8 +135,8 @@ router.post('/:roomId/leave', async (req, res, next) => {
 router.get('/:roomId/messages', requireSubscription, async (req, res, next) => {
     try {
         const { roomId } = req.params;
-        const { cursor, limit = 50 } = req.query;
-        const take = Math.min(parseInt(limit), 100);
+        const { cursor, limit = 50, jumpToUnread } = req.query;
+        let take = Math.min(parseInt(limit), 100);
 
         // Verify room exists
         const room = await prisma.room.findUnique({ where: { id: roomId } });
@@ -108,7 +144,7 @@ router.get('/:roomId/messages', requireSubscription, async (req, res, next) => {
             return res.status(404).json({ error: 'Room not found' });
         }
 
-        // Get blocked user IDs to filter them out
+        // Get blocked user IDs
         const blocks = await prisma.blockedUser.findMany({
             where: {
                 OR: [
@@ -116,17 +152,24 @@ router.get('/:roomId/messages', requireSubscription, async (req, res, next) => {
                     { blockedId: req.user.id },
                 ],
             },
+            select: {
+                blockerId: true,
+                blockedId: true,
+            },
         });
-        const blockedIds = blocks.map((b) =>
-            b.blockerId === req.user.id ? b.blockedId : b.blockerId
-        );
+
+        const blockedIds = [];
+        blocks.forEach(block => {
+            if (block.blockerId !== req.user.id) blockedIds.push(block.blockerId);
+            if (block.blockedId !== req.user.id) blockedIds.push(block.blockedId);
+        });
 
         const whereClause = {
             roomId,
             senderId: { notIn: blockedIds },
         };
 
-        const queryOptions = {
+        let queryOptions = {
             where: whereClause,
             take,
             orderBy: { createdAt: 'desc' },
@@ -136,24 +179,56 @@ router.get('/:roomId/messages', requireSubscription, async (req, res, next) => {
                 createdAt: true,
                 isFlagged: true,
                 replyToId: true,
-                sender: {
-                    select: {
-                        id: true,
-                        displayName: true,
-                        identityMode: true,
-                    },
-                },
-                replyTo: {
-                    select: {
-                        id: true,
-                        messageText: true,
-                        sender: {
-                            select: { displayName: true }
-                        }
-                    }
-                },
+                sender: { select: { id: true, displayName: true, identityMode: true } },
+                replyTo: { select: { id: true, messageText: true, sender: { select: { displayName: true } } } },
             },
         };
+
+        // Special logic: Jump to first unread
+        if (jumpToUnread === 'true') {
+            const member = await prisma.roomMember.findUnique({
+                where: { roomId_userId: { roomId, userId: req.user.id } }
+            });
+
+            if (member && member.lastReadAt) {
+                const firstUnread = await prisma.roomMessage.findFirst({
+                    where: {
+                        roomId,
+                        createdAt: { gt: member.lastReadAt },
+                        senderId: { notIn: blockedIds }
+                    },
+                    orderBy: { createdAt: 'asc' }
+                });
+
+                if (firstUnread) {
+                    queryOptions.orderBy = { createdAt: 'asc' };
+                    queryOptions.where.createdAt = { gte: firstUnread.createdAt };
+
+                    const messages = await prisma.roomMessage.findMany(queryOptions);
+
+                    const contextMessages = await prisma.roomMessage.findMany({
+                        where: {
+                            roomId,
+                            senderId: { notIn: blockedIds },
+                            createdAt: { lt: firstUnread.createdAt }
+                        },
+                        take: 5,
+                        orderBy: { createdAt: 'desc' },
+                        select: queryOptions.select
+                    });
+
+                    const combined = [...contextMessages.reverse(), ...messages];
+
+                    res.json({
+                        messages: combined.reverse(),
+                        nextCursor: null,
+                        hasMore: false,
+                        jumpedToMessageId: firstUnread.id
+                    });
+                    return;
+                }
+            }
+        }
 
         if (cursor) {
             queryOptions.skip = 1;
@@ -163,7 +238,7 @@ router.get('/:roomId/messages', requireSubscription, async (req, res, next) => {
         const messages = await prisma.roomMessage.findMany(queryOptions);
 
         res.json({
-            messages: messages.reverse(), // Return in chronological order
+            messages: messages.reverse(),
             nextCursor: messages.length === take ? messages[messages.length - 1]?.id : null,
             hasMore: messages.length === take,
         });
@@ -189,7 +264,6 @@ router.post('/:roomId/messages', requireSubscription, requireNotSuspended, async
             return res.status(400).json({ error: 'Message too long (max 2000 characters)' });
         }
 
-        // Verify room exists and user is a member
         const membership = await prisma.roomMember.findUnique({
             where: { roomId_userId: { roomId, userId: req.user.id } },
         });
@@ -230,11 +304,10 @@ router.post('/:roomId/messages', requireSubscription, requireNotSuspended, async
         const mentionMatches = messageText.match(/@([\w\s]+)/g);
         if (mentionMatches) {
             const potentialNames = mentionMatches.map(m => m.substring(1).trim());
-            // Find users with these display names
             const mentionedUsers = await prisma.user.findMany({
                 where: {
                     displayName: { in: potentialNames, mode: 'insensitive' },
-                    id: { not: req.user.id }, // Don't notify self
+                    id: { not: req.user.id },
                     isActive: true,
                 },
                 select: { id: true, fcmToken: true }
@@ -244,7 +317,6 @@ router.post('/:roomId/messages', requireSubscription, requireNotSuspended, async
                 const notificationService = require('../../../services/notificationService');
                 const room = await prisma.room.findUnique({ where: { id: roomId }, select: { name: true } });
 
-                // Send notifications asynchronously
                 Promise.all(mentionedUsers.map(user => {
                     return notificationService.sendPushNotification(user.id, {
                         title: `Mentioned in ${room.name}`,
