@@ -166,6 +166,11 @@ model RoomMessage {
   room   Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
   sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
+  // Self-relation for replies
+  replyToId String? @map("reply_to_id") @db.Uuid
+  replyTo   RoomMessage? @relation("ReplyTo", fields: [replyToId], references: [id])
+  replies   RoomMessage[] @relation("ReplyTo")
+
   @@index([roomId])
   @@index([createdAt])
   @@map("room_messages")

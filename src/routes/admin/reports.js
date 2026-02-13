@@ -206,6 +206,33 @@ router.put('/:id/resolve', async (req, res, next) => {
             },
         });
 
+        // Send notification to target user
+        const report = await prisma.report.findUnique({
+            where: { id: req.params.id },
+            select: { targetUserId: true, reason: true },
+        });
+
+        if (report && report.targetUserId) {
+            const notificationService = require('../../services/notificationService');
+            let title = 'Report Update';
+            let body = 'A report against you has been reviewed.';
+
+            if (action === 'warned') {
+                title = '⚠️ Warning Issued';
+                body = `You have been warned regarding a report: "${report.reason}". Please review our community guidelines.`;
+            } else if (action === 'suspended') {
+                title = '🚫 Account Suspended';
+                body = `Your account has been suspended due to a violation of community guidelines.`;
+            } else if (action === 'banned') {
+                title = '⛔ Account Banned';
+                body = `Your account has been permanently banned due to severe violations.`;
+            }
+
+            if (action !== 'mark_safe') {
+                await notificationService.sendPushNotification(report.targetUserId, { title, body });
+            }
+        }
+
         res.json({ message: 'Report resolved' });
     } catch (error) {
         next(error);

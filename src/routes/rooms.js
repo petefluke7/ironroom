@@ -141,26 +141,41 @@ router.get('/:roomId/messages', requireSubscription, async (req, res, next) => {
                         displayName: true,
                         identityMode: true,
                     },
+                    sender: {
+                        select: {
+                            id: true,
+                            displayName: true,
+                            identityMode: true,
+                        },
+                    },
+                    replyTo: {
+                        select: {
+                            id: true,
+                            messageText: true,
+                            sender: {
+                                select: { displayName: true }
+                            }
+                        }
+                    },
                 },
-            },
-        };
+            };
 
-        if (cursor) {
-            queryOptions.skip = 1;
-            queryOptions.cursor = { id: cursor };
-        }
+            if(cursor) {
+                queryOptions.skip = 1;
+                queryOptions.cursor = { id: cursor };
+            }
 
         const messages = await prisma.roomMessage.findMany(queryOptions);
 
-        res.json({
-            messages: messages.reverse(), // Return in chronological order
-            nextCursor: messages.length === take ? messages[messages.length - 1]?.id : null,
-            hasMore: messages.length === take,
-        });
-    } catch (error) {
-        next(error);
-    }
-});
+            res.json({
+                messages: messages.reverse(), // Return in chronological order
+                nextCursor: messages.length === take ? messages[messages.length - 1]?.id : null,
+                hasMore: messages.length === take,
+            });
+        } catch (error) {
+            next(error);
+        }
+    });
 
 /**
  * POST /api/rooms/:roomId/messages
@@ -169,7 +184,7 @@ router.get('/:roomId/messages', requireSubscription, async (req, res, next) => {
 router.post('/:roomId/messages', requireSubscription, requireNotSuspended, async (req, res, next) => {
     try {
         const { roomId } = req.params;
-        const { messageText } = req.body;
+        const { messageText, replyToId } = req.body;
 
         if (!messageText || messageText.trim().length === 0) {
             return res.status(400).json({ error: 'Message cannot be empty' });
@@ -193,11 +208,20 @@ router.post('/:roomId/messages', requireSubscription, requireNotSuspended, async
                 roomId,
                 senderId: req.user.id,
                 messageText: messageText.trim(),
+                replyToId: replyToId || null,
             },
             select: {
                 id: true,
                 messageText: true,
                 createdAt: true,
+                replyToId: true,
+                replyTo: {
+                    select: {
+                        id: true,
+                        messageText: true,
+                        sender: { select: { displayName: true } }
+                    }
+                },
                 sender: {
                     select: {
                         id: true,
@@ -206,6 +230,38 @@ router.post('/:roomId/messages', requireSubscription, requireNotSuspended, async
                 },
             },
         });
+
+        // ─── Handle Mentions ───
+        const mentionMatches = messageText.match(/@([\w\s]+)/g);
+        if (mentionMatches) {
+            const potentialNames = mentionMatches.map(m => m.substring(1).trim());
+            // Find users with these display names
+            const mentionedUsers = await prisma.user.findMany({
+                where: {
+                    displayName: { in: potentialNames, mode: 'insensitive' },
+                    id: { not: req.user.id }, // Don't notify self
+                    isActive: true,
+                },
+                select: { id: true, fcmToken: true }
+            });
+
+            if (mentionedUsers.length > 0) {
+                const notificationService = require('../../../services/notificationService');
+                const room = await prisma.room.findUnique({ where: { id: roomId }, select: { name: true } });
+
+                // Send notifications asynchronously
+                Promise.all(mentionedUsers.map(user => {
+                    return notificationService.sendPushNotification(user.id, {
+                        title: `Mentioned in ${room.name}`,
+                        body: `${req.user.displayName} mentioned you: "${messageText.length > 50 ? messageText.substring(0, 50) + '...' : messageText}"`,
+                        data: {
+                            type: 'mention',
+                            roomId: roomId,
+                        }
+                    });
+                })).catch(err => console.error('Failed to send mention notifications:', err));
+            }
+        }
 
         res.status(201).json({ message });
     } catch (error) {

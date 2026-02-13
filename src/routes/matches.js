@@ -13,6 +13,47 @@ router.use(requireActive);
 router.use(requireSubscription);
 
 /**
+ * GET /api/matches
+ * List all matches for the user
+ */
+router.get('/', async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const matches = await prisma.privateMatch.findMany({
+            where: {
+                OR: [{ userOneId: userId }, { userTwoId: userId }],
+            },
+            orderBy: { matchedAt: 'desc' },
+            include: {
+                userOne: { select: { id: true, displayName: true } },
+                userTwo: { select: { id: true, displayName: true } },
+                messages: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: { messageText: true, createdAt: true },
+                },
+            },
+        });
+
+        const formatted = matches.map((m) => {
+            const partner = m.userOneId === userId ? m.userTwo : m.userOne;
+            return {
+                id: m.id,
+                status: m.status,
+                matchedAt: m.matchedAt,
+                endedAt: m.endedAt,
+                partner,
+                lastMessage: m.messages[0] || null,
+            };
+        });
+
+        res.json({ matches: formatted });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/matches/request
  * Request a private 1-on-1 match
  */
