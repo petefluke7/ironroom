@@ -341,6 +341,7 @@ router.get('/intent-tags', async (req, res, next) => {
  */
 router.post('/set-intents', authenticate, async (req, res, next) => {
     try {
+        console.log('📝 POST /set-intents', req.body);
         let { intentTagIds } = req.body;
 
         if (!Array.isArray(intentTagIds) || intentTagIds.length < 2) {
@@ -351,35 +352,43 @@ router.post('/set-intents', authenticate, async (req, res, next) => {
             return res.status(400).json({ error: 'Maximum 4 intent tags allowed' });
         }
 
-        // Parse IDs to integers (handle string inputs from mobile)
-        intentTagIds = intentTagIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+        // Parse IDs to integers and deduplicate
+        const uniqueIds = [...new Set(intentTagIds.map(id => parseInt(id)).filter(id => !isNaN(id)))];
+
+        if (uniqueIds.length < 2) {
+            return res.status(400).json({ error: 'Invalid tags selected' });
+        }
 
         // Verify all tags exist
         const validTags = await prisma.intentTag.findMany({
-            where: { id: { in: intentTagIds }, isActive: true },
+            where: { id: { in: uniqueIds }, isActive: true },
         });
 
-        if (validTags.length !== intentTagIds.length) {
+        if (validTags.length !== uniqueIds.length) {
+            console.error('❌ Mismatch in intent tags:', { sent: uniqueIds, found: validTags.length });
             return res.status(400).json({ error: 'One or more invalid intent tags' });
         }
 
-        // Remove existing intents and set new ones
+        console.log('✅ Tags valid, saving for user:', req.user.id);
+
+        // Remove existing intents and set new ones using transaction
         await prisma.$transaction([
             prisma.userIntent.deleteMany({ where: { userId: req.user.id } }),
-            ...intentTagIds.map((tagId) =>
-                prisma.userIntent.create({
-                    data: {
-                        userId: req.user.id,
-                        intentTagId: tagId,
-                    },
-                })
-            ),
+            prisma.userIntent.createMany({
+                data: uniqueIds.map(tagId => ({
+                    userId: req.user.id,
+                    intentTagId: tagId,
+                })),
+                skipDuplicates: true,
+            }),
         ]);
 
+        console.log('🎉 Intents saved successfully');
         res.json({ message: 'Intent tags updated', tags: validTags });
 
     } catch (error) {
-        next(error);
+        console.error('❌ Error setting intents:', error);
+        res.status(500).json({ error: error.message || 'Failed to save intents' });
     }
 });
 
