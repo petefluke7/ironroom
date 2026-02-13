@@ -307,6 +307,23 @@ router.post('/agree-to-values', authenticate, async (req, res, next) => {
 });
 
 /**
+ * GET /api/auth/intent-tags
+ * Get all active intent tags (public/onboarding)
+ */
+router.get('/intent-tags', async (req, res, next) => {
+    try {
+        const tags = await prisma.intentTag.findMany({
+            where: { isActive: true },
+            select: { id: true, tagName: true },
+            orderBy: { id: 'asc' },
+        });
+        res.json({ tags });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/auth/set-intents
  * Set user intent tags (during onboarding or later)
  */
