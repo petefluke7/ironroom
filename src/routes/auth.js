@@ -324,12 +324,39 @@ router.get('/intent-tags', async (req, res, next) => {
 });
 
 /**
+ * GET /api/auth/intent-tags
+ * Get all active intent tags (public/onboarding)
+ */
+router.get('/intent-tags', async (req, res, next) => {
+    try {
+        const tags = await prisma.intentTag.findMany({
+            where: { isActive: true },
+            select: { id: true, tagName: true },
+            orderBy: { id: 'asc' },
+        });
+
+        // Format tags for display (remove underscores, capitalize)
+        const formattedTags = tags.map(t => ({
+            id: t.id, // Keep as int, generic JSON will handle it
+            tagName: t.tagName
+                .split('_')
+                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' '),
+        }));
+
+        res.json({ tags: formattedTags });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
  * POST /api/auth/set-intents
  * Set user intent tags (during onboarding or later)
  */
 router.post('/set-intents', authenticate, async (req, res, next) => {
     try {
-        const { intentTagIds } = req.body;
+        let { intentTagIds } = req.body;
 
         if (!Array.isArray(intentTagIds) || intentTagIds.length < 2) {
             return res.status(400).json({ error: 'Please select at least 2 intent tags' });
@@ -338,6 +365,9 @@ router.post('/set-intents', authenticate, async (req, res, next) => {
         if (intentTagIds.length > 4) {
             return res.status(400).json({ error: 'Maximum 4 intent tags allowed' });
         }
+
+        // Parse IDs to integers (handle string inputs from mobile)
+        intentTagIds = intentTagIds.map(id => parseInt(id)).filter(id => !isNaN(id));
 
         // Verify all tags exist
         const validTags = await prisma.intentTag.findMany({
@@ -362,6 +392,7 @@ router.post('/set-intents', authenticate, async (req, res, next) => {
         ]);
 
         res.json({ message: 'Intent tags updated', tags: validTags });
+
     } catch (error) {
         next(error);
     }
