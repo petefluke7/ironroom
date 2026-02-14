@@ -58,6 +58,7 @@ model User {
   blockedUsers            BlockedUser[]    @relation("Blocker")
   blockedByUsers          BlockedUser[]    @relation("Blocked")
   warningsReceived        Warning[]
+  matchQueue              MatchQueue?
 
   @@map("users")
 }
@@ -332,6 +333,20 @@ model Warning {
   moderator Moderator @relation(fields: [issuedBy], references: [id], onDelete: Cascade)
 
   @@map("warnings")
+}
+
+// ─────────────────────────────────────
+// MATCH QUEUE (replaces Redis queue)
+// ─────────────────────────────────────
+
+model MatchQueue {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  user          User     @relation(fields: [userId], references: [id])
+  intentTagIds  String[] @map("intent_tag_ids")
+  joinedAt      DateTime @default(now()) @map("joined_at")
+
+  @@map("match_queue")
 }
 
 model AuditLog {
