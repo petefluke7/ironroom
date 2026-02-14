@@ -59,6 +59,9 @@ app.use('/api/', apiLimiter);
 // Serve admin panel static files
 app.use('/admin', express.static(path.join(__dirname, '..', 'public', 'admin')));
 
+// Serve user uploads
+app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
+
 // Root redirect to admin
 app.get('/', (req, res) => res.redirect('/admin/'));
 
