@@ -61,28 +61,7 @@ router.post('/request', requireNotSuspended, matchLimiter, async (req, res, next
     try {
         const userId = req.user.id;
 
-        // 1. Check if user is already in an active match
-        const activeMatch = await prisma.privateMatch.findFirst({
-            where: {
-                OR: [{ userOneId: userId }, { userTwoId: userId }],
-                status: 'active',
-            },
-            include: {
-                userOne: { select: { id: true, displayName: true } },
-                userTwo: { select: { id: true, displayName: true } },
-            },
-        });
-
-        if (activeMatch) {
-            const partner = activeMatch.userOneId === userId ? activeMatch.userTwo : activeMatch.userOne;
-            return res.json({
-                status: 'matched',
-                matchId: activeMatch.id,
-                partnerName: partner.displayName,
-            });
-        }
-
-        // 2. Check cooldown after last match ended
+        // 1. Check cooldown after last match ended
         const lastMatch = await prisma.privateMatch.findFirst({
             where: {
                 OR: [{ userOneId: userId }, { userTwoId: userId }],
@@ -270,35 +249,89 @@ router.get('/status', async (req, res, next) => {
     try {
         const userId = req.user.id;
 
-        // Check if matched
-        const activeMatch = await prisma.privateMatch.findFirst({
-            where: {
-                OR: [{ userOneId: userId }, { userTwoId: userId }],
-                status: 'active',
-            },
-            select: {
-                id: true,
-                matchedAt: true,
-                userOne: { select: { id: true, displayName: true } },
-                userTwo: { select: { id: true, displayName: true } },
-            },
-        });
-
-        if (activeMatch) {
-            const partner = activeMatch.userOne.id === userId
-                ? activeMatch.userTwo
-                : activeMatch.userOne;
-
-            return res.json({
-                status: 'matched',
-                matchId: activeMatch.id,
-                partnerName: partner.displayName,
-            });
-        }
-
         // Check if in queue
         const inQueue = await prisma.matchQueue.findUnique({ where: { userId } });
         if (inQueue) {
+            // While in queue, also try to find a match (another user may have joined)
+            // Re-run matching logic
+            const userIntents = await prisma.userIntent.findMany({
+                where: { userId },
+                select: { intentTagId: true },
+            });
+            const myIntentTagIds = userIntents.map((ui) => String(ui.intentTagId));
+
+            const waitingUsers = await prisma.matchQueue.findMany({
+                where: { userId: { not: userId } },
+                include: { user: { select: { id: true, displayName: true, isSuspended: true } } },
+            });
+
+            // If there's someone else waiting, try to match now
+            if (waitingUsers.length > 0) {
+                let bestMatch = null;
+                let bestScore = -Infinity;
+
+                for (const candidate of waitingUsers) {
+                    if (candidate.user.isSuspended) continue;
+
+                    const block = await prisma.blockedUser.findFirst({
+                        where: {
+                            OR: [
+                                { blockerId: userId, blockedId: candidate.userId },
+                                { blockerId: candidate.userId, blockedId: userId },
+                            ],
+                        },
+                    });
+                    if (block) continue;
+
+                    let score = 0;
+                    const candidateIntents = candidate.intentTagIds || [];
+                    const sharedIntents = myIntentTagIds.filter((id) => candidateIntents.includes(id));
+                    if (sharedIntents.length > 0) score += MATCH_SCORING.SHARED_INTENT;
+
+                    const now = Date.now();
+                    const waitTimeMs = now - candidate.joinedAt.getTime();
+                    score += Math.floor(waitTimeMs / 10000) * MATCH_SCORING.TIME_WAITING_PER_10S;
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = candidate;
+                    }
+                }
+
+                if (bestMatch) {
+                    const match = await prisma.privateMatch.create({
+                        data: {
+                            userOneId: userId,
+                            userTwoId: bestMatch.userId,
+                            status: 'active',
+                        },
+                    });
+
+                    await prisma.matchQueue.deleteMany({
+                        where: { userId: { in: [userId, bestMatch.userId] } },
+                    });
+
+                    console.log(`✅ Match created via status poll: ${userId} ↔ ${bestMatch.userId}`);
+
+                    try {
+                        const { sendPushNotification } = require('../services/notificationService');
+                        await sendPushNotification(bestMatch.userId, {
+                            title: 'Match found!',
+                            body: 'You have been connected with someone ready to talk',
+                            data: { type: 'match_found', matchId: match.id },
+                        });
+                    } catch (err) {
+                        console.error('Push notification error:', err.message);
+                    }
+
+                    return res.json({
+                        status: 'matched',
+                        matchId: match.id,
+                        partnerName: bestMatch.user.displayName,
+                    });
+                }
+            }
+
             return res.json({ status: 'waiting' });
         }
 
