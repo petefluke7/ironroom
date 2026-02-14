@@ -27,6 +27,7 @@ model User {
   passwordHash            String        @map("password_hash")
   firebaseUid             String?       @unique @map("firebase_uid")
   displayName             String        @map("display_name")
+  profilePictureUrl       String?       @map("profile_picture_url")
   identityMode            IdentityMode  @map("identity_mode")
   isActive                Boolean       @default(false) @map("is_active")
   isSuspended             Boolean       @default(false) @map("is_suspended")
@@ -145,6 +146,7 @@ model RoomMember {
   roomId   String   @map("room_id") @db.Uuid
   userId   String   @map("user_id") @db.Uuid
   joinedAt DateTime @default(now()) @map("joined_at")
+  lastReadAt DateTime @default(now()) @map("last_read_at")
 
   // Relations
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
