@@ -2,6 +2,39 @@ const express = require('express');
 const prisma = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure multer
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
+        // Ensure directory exists
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        // userId-timestamp.ext
+        const ext = path.extname(file.originalname);
+        cb(null, `${req.user.id}-${Date.now()}${ext}`);
+    }
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('only images are allowed'));
+        }
+    }
+});
+
 const router = express.Router();
 
 // All profile routes require authentication
@@ -20,6 +53,7 @@ router.get('/', async (req, res, next) => {
                 email: true,
                 phoneNumber: true,
                 displayName: true,
+                profilePictureUrl: true,
                 identityMode: true,
                 isActive: true,
                 agreedToValues: true,
@@ -42,6 +76,34 @@ router.get('/', async (req, res, next) => {
         });
 
         res.json({ user });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * POST /api/profile/avatar
+ * Upload profile picture
+ */
+router.post('/avatar', upload.single('avatar'), async (req, res, next) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const profilePictureUrl = `/uploads/${req.file.filename}`;
+
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { profilePictureUrl },
+            select: {
+                id: true,
+                displayName: true,
+                profilePictureUrl: true,
+            }
+        });
+
+        res.json({ message: 'Profile picture updated', user });
     } catch (error) {
         next(error);
     }
