@@ -194,6 +194,7 @@ router.post('/login', async (req, res, next) => {
             refreshToken,
             user: {
                 id: user.id,
+                email: user.email,
                 displayName: user.displayName,
                 identityMode: user.identityMode,
                 isActive: user.isActive,
@@ -242,6 +243,7 @@ router.post('/login-phone', async (req, res, next) => {
             refreshToken,
             user: {
                 id: user.id,
+                phoneNumber: user.phoneNumber,
                 displayName: user.displayName,
                 identityMode: user.identityMode,
                 isActive: user.isActive,
